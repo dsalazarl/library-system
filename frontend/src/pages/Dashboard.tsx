@@ -1,0 +1,47 @@
+import { useAuthStore } from '../store/authStore';
+import { BookOpen, LogOut } from 'lucide-react';
+
+export default function Dashboard() {
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <nav className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex">
+              <div className="flex-shrink-0 flex items-center">
+                <BookOpen className="h-8 w-8 text-sky-500" />
+                <span className="ml-2 text-xl font-bold text-slate-900">Biblioteca</span>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <span className="text-sm text-slate-600 mr-4">Hola, {user?.username}</span>
+              <button
+                onClick={logout}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none transition-colors"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Salir
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-1 max-w-7xl w-full mx-auto py-10 px-4 sm:px-6 lg:px-8">
+        <div className="glass-panel p-8">
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">Bienvenido al Panel</h1>
+          <p className="text-slate-600">
+            Has iniciado sesión exitosamente. Pronto podrás buscar libros, reservarlos y pedir préstamos desde aquí.
+          </p>
+          <div className="mt-6 p-4 bg-sky-50 rounded-lg border border-sky-100">
+            <h3 className="text-sm font-medium text-sky-800">Tu Rol:</h3>
+            <p className="mt-1 text-sm text-sky-600 font-semibold uppercase">{user?.role}</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

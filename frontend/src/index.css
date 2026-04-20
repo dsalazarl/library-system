@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sky-50: #f0f9ff;
+  --color-sky-100: #e0f2fe;
+  --color-sky-500: #0ea5e9;
+  --color-sky-600: #0284c7;
+}
+
+body {
+  @apply bg-white text-slate-900 antialiased min-h-screen flex flex-col;
+}
+
+/* Base button styles to ensure consistency with the black/white/sky theme */
+.btn-primary {
+  @apply w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-black hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-colors duration-200;
+}
+
+.input-primary {
+  @apply appearance-none block w-full px-3 py-2.5 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm transition-colors duration-200;
+}
+
+/* Glassmorphism effects */
+.glass-panel {
+  @apply bg-white/80 backdrop-blur-md border border-slate-200 shadow-xl rounded-2xl;
+}
