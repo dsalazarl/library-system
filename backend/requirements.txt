@@ -1,0 +1,6 @@
+# Project Dependencies
+django==5.2.13
+djangorestframework
+django-cors-headers
+djangorestframework-simplejwt
+gunicorn
