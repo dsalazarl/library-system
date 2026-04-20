@@ -5,13 +5,20 @@ export default function Dashboard() {
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
 
+  const isLibrarian = user?.role === 'librarian';
+  const pageTitle = isLibrarian ? 'Bienvenido al Panel de Bibliotecario' : 'Bienvenido a la Biblioteca';
+  const pageSubtitle = isLibrarian 
+    ? 'Pronto podrás agregar, quitar y modificar libros en el catálogo desde aquí.' 
+    : 'Pronto podrás buscar libros, reservarlos y pedir préstamos desde aquí.';
+  const bgClass = isLibrarian ? 'bg-sky-200' : 'bg-slate-50';
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className={`min-h-screen flex flex-col transition-colors duration-300 ${bgClass}`}>
       <nav className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
+              <div className="shrink-0 flex items-center">
                 <BookOpen className="h-8 w-8 text-sky-500" />
                 <span className="ml-2 text-xl font-bold text-slate-900">Biblioteca</span>
               </div>
@@ -32,14 +39,10 @@ export default function Dashboard() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto py-10 px-4 sm:px-6 lg:px-8">
         <div className="glass-panel p-8">
-          <h1 className="text-2xl font-bold text-slate-900 mb-4">Bienvenido al Panel</h1>
+          <h1 className="text-2xl font-bold text-slate-900 mb-4">{pageTitle}</h1>
           <p className="text-slate-600">
-            Has iniciado sesión exitosamente. Pronto podrás buscar libros, reservarlos y pedir préstamos desde aquí.
+            {pageSubtitle}
           </p>
-          <div className="mt-6 p-4 bg-sky-50 rounded-lg border border-sky-100">
-            <h3 className="text-sm font-medium text-sky-800">Tu Rol:</h3>
-            <p className="mt-1 text-sm text-sky-600 font-semibold uppercase">{user?.role}</p>
-          </div>
         </div>
       </main>
     </div>
