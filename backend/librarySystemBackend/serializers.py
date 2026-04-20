@@ -28,8 +28,9 @@ class RegisterSerializer(serializers.ModelSerializer):
 class BookSerializer(serializers.ModelSerializer):
     available_copies_count = serializers.IntegerField(read_only=True)
     total_copies_count = serializers.IntegerField(read_only=True)
+    can_delete = serializers.BooleanField(read_only=True)
     copies_count = serializers.IntegerField(
-        write_only=True, required=False, min_value=0, default=0
+        write_only=True, required=False, min_value=1, default=1
     )
 
     class Meta:
@@ -42,6 +43,7 @@ class BookSerializer(serializers.ModelSerializer):
             "is_active",
             "available_copies_count",
             "total_copies_count",
+            "can_delete",
             "copies_count",
             "created_at",
             "updated_at",

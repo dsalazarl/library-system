@@ -29,7 +29,7 @@ class BookViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # By default, only return active books
-        return Book.objects.filter(is_active=True).order_by("-created_at")
+        return Book.objects.filter(is_active=True).order_by("title")
 
     def perform_create(self, serializer):
         copies_count = serializer.validated_data.pop("copies_count", 0)

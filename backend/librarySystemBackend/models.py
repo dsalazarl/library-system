@@ -55,6 +55,13 @@ class Book(models.Model):
     def total_copies_count(self):
         return self.copies.count()
 
+    @property
+    def can_delete(self):
+        """A book can only be deleted if no copies are currently reserved, borrowed, or pending transfer."""
+        return not self.copies.filter(
+            status__in=["reserved", "borrowed", "pending_transfer"]
+        ).exists()
+
 
 class BookCopy(models.Model):
     class StatusChoices(models.TextChoices):
