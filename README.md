@@ -16,7 +16,9 @@ A web-based library management system that supports book cataloging, reservation
 
 - **Backend**: Django 5+ (Python) with Django REST Framework
 - **Frontend**: React + Vite + Tailwind CSS v4
-- **State Management**: Zustand
+- **State Management**: 
+  - **Server State**: `@tanstack/react-query` (with Axios)
+  - **Client State**: `zustand` (for Auth persistence)
 - **Authentication**: JWT (JSON Web Tokens) via `djangorestframework-simplejwt`
 - **Database**: PostgreSQL (Production) / SQLite (Development)
 - **Deployment**: Render (Static Site + Web Service)
@@ -40,6 +42,10 @@ The system strictly enforces the following rules at both the application and dat
    - A user can have a maximum of **3 active loans** at any time.
    - A user can have a maximum of **5 active reservations** at any time.
    - A user **cannot** have more than one copy of the same book title (whether reserved or borrowed) simultaneously.
+6. **Data Deletion Policy:** The system uses a **soft delete** approach for books (via an `is_active` flag). 
+   - When a librarian deletes a book, it is hidden from the active catalog.
+   - All associated `BookCopy` records are updated to reflect the book is no longer in circulation.
+   - Historical records of past reservations and loans remain preserved for audit purposes.
 
 ## Project Structure
 
@@ -47,15 +53,15 @@ The project is organized as a monorepo with separate folders for backend and fro
 
 ```text
 library-system/
-├── backend/                # Django REST Framework Backend
-│   ├── librarySystemBackend/ # Main settings and models
-│   ├── manage.py           # Django CLI
-│   └── requirements.txt    # Python dependencies
-├── frontend/               # React + Vite Frontend
-│   ├── src/                # React source code
-│   ├── package.json        # JS dependencies
-│   └── vite.config.ts      # Vite configuration
-└── database-schema.md      # Detailed ER diagram
+├── backend/                    # Django REST Framework Backend
+│   ├── librarySystemBackend/   # Main settings and models
+│   ├── manage.py               # Django CLI
+│   └── requirements.txt        # Python dependencies
+├── frontend/                   # React + Vite + TypeScript Frontend
+│   ├── src/                    # React source code
+│   ├── package.json            # JS dependencies
+│   └── vite.config.ts          # Vite configuration
+└── database-schema.md          # Detailed ER diagram
 ```
 
 ## Architecture
@@ -77,13 +83,14 @@ books (Catalog)
 ├── title (string, not null)
 ├── author (string, not null)
 ├── isbn (string)
+├── is_active (boolean, default: true)
 ├── created_at (datetime)
 └── updated_at (datetime)
 
 book_copies (Physical Items)
 ├── id (UUID/PK)
 ├── book_id (FK → books)
-├── status (enum: available, reserved, borrowed, pending_transfer)
+├── status (enum: available, reserved, borrowed, pending_transfer, deleted_by_librarian)
 └── condition (string)
 
 reservations
