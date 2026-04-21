@@ -8,7 +8,7 @@ services:
   # Backend Service
   - type: web
     name: library-backend
-    env: python
+    runtime: python
     buildCommand: ./build.sh
     startCommand: gunicorn librarySystemBackend.wsgi:application
     rootDir: backend
@@ -32,9 +32,9 @@ services:
   # Frontend Service
   - type: web
     name: library-frontend
-    env: static
+    runtime: static
     buildCommand: npm install && npm run build
-    staticPublishDir: dist
+    staticPublishPath: dist
     rootDir: frontend
     plan: free
     envVars:
