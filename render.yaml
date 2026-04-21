@@ -8,7 +8,7 @@ services:
   # Backend Service
   - type: web
     name: library-backend
-    runtime: python
+    env: python
     buildCommand: ./build.sh
     startCommand: gunicorn librarySystemBackend.wsgi:application
     rootDir: backend
@@ -25,16 +25,16 @@ services:
       - key: ALLOWED_HOSTS
         value: "localhost"
       - key: FRONTEND_URL
-        fromStaticSite:
+        fromService:
           name: library-frontend
           property: url
 
   # Frontend Service
-  - type: static
+  - type: web
     name: library-frontend
-    runtime: node
+    env: static
     buildCommand: npm install && npm run build
-    publishDir: dist
+    staticPublishDir: dist
     rootDir: frontend
     plan: free
     envVars:
@@ -47,7 +47,7 @@ services:
   # Automated Expiration Cron Job
   - type: cron
     name: expire-reservations-cron
-    runtime: python
+    env: python
     schedule: "*/5 * * * *" # Every 5 minutes
     buildCommand: pip install -r requirements.txt
     startCommand: python manage.py expire_reservations
@@ -62,6 +62,6 @@ services:
         fromService:
           name: library-backend
           type: web
-          property: SECRET_KEY
+          property: envVar:SECRET_KEY
       - key: DEBUG
         value: "False"
