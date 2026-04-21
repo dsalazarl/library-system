@@ -7,7 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Book, BookCopy, Reservation, Loan
+from .models import Book, BookCopy, Reservation, Loan, TransferRequest, User
 
 RESERVATION_HOURS = 1
 LOAN_DAYS = 2
@@ -223,3 +223,192 @@ def return_book(user, loan: Loan) -> Loan:
         loan.book_copy.save(update_fields=["status"])
 
     return loan
+
+
+# ---------------------------------------------------------------------------
+# Transfer actions
+# ---------------------------------------------------------------------------
+
+
+def initiate_transfer(from_user, loan: Loan, to_user_email: str) -> TransferRequest:
+    """
+    Initiates a transfer request from from_user to user with to_user_email.
+    """
+    if loan.user_id != from_user.id:
+        raise ValueError("El préstamo no te pertenece.")
+    if loan.status not in [Loan.StatusChoices.ACTIVE, Loan.StatusChoices.OVERDUE]:
+        raise ValueError("Este préstamo no puede ser transferido.")
+
+    try:
+        to_user = User.objects.get(email=to_user_email)
+    except User.DoesNotExist:
+        raise ValueError(f"El usuario con email {to_user_email} no existe.")
+
+    if to_user.id == from_user.id:
+        raise ValueError("No puedes transferirte un libro a ti mismo.")
+
+    # Check recipient limits
+    active_loans = Loan.objects.filter(
+        user=to_user,
+        status__in=[
+            Loan.StatusChoices.ACTIVE,
+            Loan.StatusChoices.OVERDUE,
+            Loan.StatusChoices.PENDING_TRANSFER,
+        ],
+    ).count()
+    if active_loans >= MAX_ACTIVE_LOANS:
+        raise ValueError(
+            f"El receptor alcanzó el límite de {MAX_ACTIVE_LOANS} préstamos."
+        )
+
+    if Loan.objects.filter(
+        user=to_user,
+        book=loan.book,
+        status__in=[
+            Loan.StatusChoices.ACTIVE,
+            Loan.StatusChoices.OVERDUE,
+            Loan.StatusChoices.PENDING_TRANSFER,
+        ],
+    ).exists():
+        raise ValueError("El receptor ya tiene un préstamo de este libro.")
+
+    if Reservation.objects.filter(
+        user=to_user, book=loan.book, status=Reservation.StatusChoices.ACTIVE
+    ).exists():
+        raise ValueError("El receptor ya tiene una reserva de este libro.")
+
+    with transaction.atomic():
+        # Lock loan and copy
+        loan = Loan.objects.select_for_update().get(pk=loan.pk)
+        copy = BookCopy.objects.select_for_update().get(pk=loan.book_copy_id)
+
+        loan.status = Loan.StatusChoices.PENDING_TRANSFER
+        loan.save(update_fields=["status"])
+
+        copy.status = BookCopy.StatusChoices.PENDING_TRANSFER
+        copy.save(update_fields=["status"])
+
+        transfer = TransferRequest.objects.create(
+            loan=loan,
+            from_user=from_user,
+            to_user=to_user,
+        )
+
+    return transfer
+
+
+def accept_transfer(user, transfer: TransferRequest) -> Loan:
+    """
+    Recipient accepts the transfer.
+    """
+    if transfer.to_user_id != user.id:
+        raise ValueError("Esta solicitud de transferencia no es para ti.")
+    if transfer.status != TransferRequest.StatusChoices.PENDING:
+        raise ValueError("La solicitud ya no está pendiente.")
+
+    # Re-check limits at acceptance time
+    active_loans = Loan.objects.filter(
+        user=user,
+        status__in=[
+            Loan.StatusChoices.ACTIVE,
+            Loan.StatusChoices.OVERDUE,
+            Loan.StatusChoices.PENDING_TRANSFER,
+        ],
+    ).count()
+    if active_loans >= MAX_ACTIVE_LOANS:
+        raise ValueError(f"Alcanzaste el límite de {MAX_ACTIVE_LOANS} préstamos.")
+
+    with transaction.atomic():
+        transfer = TransferRequest.objects.select_for_update().get(pk=transfer.pk)
+        loan = Loan.objects.select_for_update().get(pk=transfer.loan_id)
+        copy = BookCopy.objects.select_for_update().get(pk=loan.book_copy_id)
+
+        # Mark original loan as transferred
+        loan.status = Loan.StatusChoices.TRANSFERRED
+        loan.save(update_fields=["status"])
+
+        # Mark transfer as accepted
+        transfer.status = TransferRequest.StatusChoices.ACCEPTED
+        transfer.save(update_fields=["status"])
+
+        # Create NEW loan for recipient with same due_date
+        new_loan = Loan.objects.create(
+            user=user,
+            book_copy=copy,
+            book=loan.book,
+            due_date=loan.due_date,
+            status=Loan.StatusChoices.ACTIVE,
+        )
+
+        # Restore copy status to BORROWED
+        copy.status = BookCopy.StatusChoices.BORROWED
+        copy.save(update_fields=["status"])
+
+        return new_loan
+
+
+def reject_transfer(user, transfer: TransferRequest):
+    """
+    Recipient rejects the transfer.
+    """
+    if transfer.to_user_id != user.id:
+        raise ValueError("Esta solicitud de transferencia no es para ti.")
+    if transfer.status != TransferRequest.StatusChoices.PENDING:
+        raise ValueError("La solicitud ya no está pendiente.")
+
+    with transaction.atomic():
+        transfer = TransferRequest.objects.select_for_update().get(pk=transfer.pk)
+        loan = Loan.objects.select_for_update().get(pk=transfer.loan_id)
+        copy = BookCopy.objects.select_for_update().get(pk=loan.book_copy_id)
+
+        transfer.status = TransferRequest.StatusChoices.REJECTED
+        transfer.save(update_fields=["status"])
+
+        # Restore loan and copy status
+        loan.status = Loan.StatusChoices.ACTIVE
+        # Note: could be overdue, mark_overdue_loans will handle it on next access
+        loan.save(update_fields=["status"])
+
+        copy.status = BookCopy.StatusChoices.BORROWED
+        copy.save(update_fields=["status"])
+
+
+def cancel_transfer(user, transfer: TransferRequest):
+    """
+    Initiator cancels the transfer.
+    """
+    if transfer.from_user_id != user.id:
+        raise ValueError("Solo el iniciador puede cancelar la transferencia.")
+    if transfer.status != TransferRequest.StatusChoices.PENDING:
+        raise ValueError("La solicitud ya no está pendiente.")
+
+    with transaction.atomic():
+        transfer = TransferRequest.objects.select_for_update().get(pk=transfer.pk)
+        loan = Loan.objects.select_for_update().get(pk=transfer.loan_id)
+        copy = BookCopy.objects.select_for_update().get(pk=loan.book_copy_id)
+
+        transfer.status = TransferRequest.StatusChoices.CANCELLED
+        transfer.save(update_fields=["status"])
+
+        # Restore loan and copy status
+        loan.status = Loan.StatusChoices.ACTIVE
+        loan.save(update_fields=["status"])
+
+        copy.status = BookCopy.StatusChoices.BORROWED
+        copy.save(update_fields=["status"])
+
+
+def cancel_transfer_by_loan(user, loan: Loan):
+    """
+    Cancel a pending transfer using the loan object.
+    """
+    transfer = TransferRequest.objects.filter(
+        loan_id=loan.id,
+        from_user_id=user.id,
+        status=TransferRequest.StatusChoices.PENDING,
+    ).first()
+
+    if not transfer:
+        raise ValueError("No hay una transferencia pendiente para este préstamo.")
+
+    return cancel_transfer(user, transfer)

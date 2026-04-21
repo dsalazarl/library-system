@@ -37,7 +37,17 @@ The system strictly enforces the following rules at both the application and dat
 1. **Catalog vs Copies:** The system follows a **1-to-N** model. There is a general `Book` catalog, and multiple physical `BookCopy` entities associated with it. Reservations and loans are made on specific copies.
 2. **Reservation Lifecycle:** A reservation lasts exactly 1 hour. During this time, the specific copy cannot be reserved or borrowed by anyone else.
 3. **Loan Lifecycle:** A loan lasts exactly 2 days. 
-4. **Transfer Mechanism:** Transfers require **Confirmation**. User A initiates a transfer to User B. The loan goes into a `pending_transfer` state. User B must accept the transfer to assume the remaining time of the loan.
+4. **Transfer Mechanism:** Transfers require **Confirmation**. 
+   - User A initiates a transfer to User B via email.
+   - The loan enters `pending_transfer` state and the book copy also becomes `pending_transfer` (locked).
+   - User A can **cancel** the transfer if it hasn't been accepted yet.
+   - User B sees an incoming request in their activity panel.
+   - If User B **accepts**: 
+     - The original loan is marked as `transferred`.
+     - A **new** loan is created for User B with the **exact same original due_date**.
+     - The copy status returns to `borrowed`.
+   - If User B **rejects**:
+     - The loan and copy statuses are restores to `active` and `borrowed` respectively.
 5. **Strict Limits:** 
    - A user can have a maximum of **3 active loans** at any time.
    - A user can have a maximum of **5 active reservations** at any time.
@@ -113,7 +123,7 @@ loans
 ├── created_at (datetime)
 ├── due_date (datetime)    # Usually created_at + 2 days
 ├── returned_at (datetime, nullable)
-└── status (enum: active, overdue, returned, transferred)
+└── status (enum: active, overdue, returned, transferred, pending_transfer)
 
 transfer_requests
 ├── id (UUID/PK)

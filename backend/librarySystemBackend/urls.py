@@ -13,12 +13,14 @@ from librarySystemBackend.views import (
     BookViewSet,
     ReservationViewSet,
     LoanViewSet,
+    TransferRequestViewSet,
 )
 
 router = DefaultRouter()
 router.register(r"books", BookViewSet, basename="book")
 router.register(r"reservations", ReservationViewSet, basename="reservation")
 router.register(r"loans", LoanViewSet, basename="loan")
+router.register(r"transfers", TransferRequestViewSet, basename="transfer")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

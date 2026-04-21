@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import User, Book, BookCopy, Reservation, Loan
+from .models import User, Book, BookCopy, Reservation, Loan, TransferRequest
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -118,7 +118,39 @@ class LoanSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_time_remaining_seconds(self, obj) -> int:
-        if obj.status not in [Loan.StatusChoices.ACTIVE, Loan.StatusChoices.OVERDUE]:
+        if obj.status not in [
+            Loan.StatusChoices.ACTIVE,
+            Loan.StatusChoices.OVERDUE,
+            Loan.StatusChoices.PENDING_TRANSFER,
+        ]:
             return 0
         delta = obj.due_date - timezone.now()
-        return max(0, int(delta.total_seconds()))
+        # Return negative for overdue in the serializer (frontend handles abs)
+        return int(delta.total_seconds())
+
+
+class TransferRequestSerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source="loan.book.title", read_only=True)
+    book_author = serializers.CharField(source="loan.book.author", read_only=True)
+    from_user_email = serializers.EmailField(source="from_user.email", read_only=True)
+    time_remaining_seconds = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TransferRequest
+        fields = (
+            "id",
+            "loan",
+            "from_user",
+            "from_user_email",
+            "to_user",
+            "book_title",
+            "book_author",
+            "time_remaining_seconds",
+            "status",
+            "created_at",
+        )
+        read_only_fields = fields
+
+    def get_time_remaining_seconds(self, obj) -> int:
+        delta = obj.loan.due_date - timezone.now()
+        return int(delta.total_seconds())

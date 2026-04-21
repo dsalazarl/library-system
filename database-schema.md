@@ -56,7 +56,7 @@ erDiagram
         datetime created_at
         datetime due_date "Exactly 2 days after creation"
         datetime returned_at "Nullable"
-        string status "enum: active, overdue, returned, transferred"
+        string status "enum: active, overdue, returned, transferred, pending_transfer"
     }
 
     transfer_requests {

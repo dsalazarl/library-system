@@ -34,6 +34,7 @@ export const useLoans = () => {
     return data;
   };
 
+
   const loansQuery = useQuery({
     queryKey: QUERY_KEY,
     queryFn: fetchLoans,
@@ -66,6 +67,22 @@ export const useLoans = () => {
     },
   });
 
+  const initiateTransferMutation = useMutation({
+    mutationFn: ({ loanId, email }: { loanId: string; email: string }): Promise<void> =>
+      api.post(`/loans/${loanId}/initiate_transfer/`, { to_user_email: email }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
+
+  const cancelTransferMutation = useMutation({
+    mutationFn: (loanId: string) =>
+      api.post(`/loans/${loanId}/cancel_transfer/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
+
   return {
     loans: loansQuery.data ?? [],
     history: historyQuery.data ?? [],
@@ -76,5 +93,9 @@ export const useLoans = () => {
     isCheckingOut: checkoutMutation.isPending,
     returnBook: returnMutation.mutateAsync,
     isReturning: returnMutation.isPending,
+    initiateTransfer: initiateTransferMutation.mutateAsync,
+    isInitiatingTransfer: initiateTransferMutation.isPending,
+    cancelLoanTransfer: cancelTransferMutation.mutateAsync,
+    isCancellingTransfer: cancelTransferMutation.isPending,
   };
 };

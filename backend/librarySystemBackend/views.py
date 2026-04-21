@@ -14,8 +14,9 @@ from .serializers import (
     BookCopyStatusSerializer,
     ReservationSerializer,
     LoanSerializer,
+    TransferRequestSerializer,
 )
-from .models import Book, BookCopy, Reservation, Loan
+from .models import Book, BookCopy, Reservation, Loan, TransferRequest
 from .permissions import IsLibrarianOrReadOnly
 from .services import (
     expire_stale_reservations,
@@ -23,6 +24,11 @@ from .services import (
     reserve_book,
     checkout_book,
     return_book,
+    initiate_transfer,
+    accept_transfer,
+    reject_transfer,
+    cancel_transfer,
+    cancel_transfer_by_loan,
 )
 
 User = get_user_model()
@@ -202,6 +208,7 @@ class LoanViewSet(
     GET  /api/loans/               → list my active/overdue loans
     POST /api/loans/               → direct checkout  { "book_id": "<uuid>" }
     POST /api/loans/{id}/return_book/ → return a loan
+    POST /api/loans/{id}/initiate_transfer/ → start a transfer to another user
     """
 
     serializer_class = LoanSerializer
@@ -213,7 +220,11 @@ class LoanViewSet(
         return (
             Loan.objects.filter(
                 user=self.request.user,
-                status__in=[Loan.StatusChoices.ACTIVE, Loan.StatusChoices.OVERDUE],
+                status__in=[
+                    Loan.StatusChoices.ACTIVE,
+                    Loan.StatusChoices.OVERDUE,
+                    Loan.StatusChoices.PENDING_TRANSFER,
+                ],
             )
             .select_related("book", "book_copy")
             .order_by("due_date")
@@ -235,6 +246,17 @@ class LoanViewSet(
         serializer = self.get_serializer(loan)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["post"], url_path="cancel_transfer")
+    def cancel_transfer(self, request, pk=None):
+        """Cancel a pending transfer for this loan."""
+        loan = get_object_or_404(Loan, id=pk, user=request.user)
+        try:
+            cancel_transfer_by_loan(user=request.user, loan=loan)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"status": "cancelled"})
+
     @action(detail=True, methods=["post"], url_path="return_book")
     def return_book(self, request, pk=None):
         """Return a borrowed copy."""
@@ -247,15 +269,109 @@ class LoanViewSet(
         serializer = self.get_serializer(loan)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"], url_path="initiate_transfer")
+    def initiate_transfer(self, request, pk=None):
+        """Start a transfer to another user via email."""
+        loan = get_object_or_404(Loan, id=pk, user=request.user)
+        to_email = request.data.get("to_user_email")
+        if not to_email:
+            return Response(
+                {"error": "Se requiere el email del receptor."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            transfer = initiate_transfer(
+                from_user=request.user, loan=loan, to_user_email=to_email
+            )
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = TransferRequestSerializer(transfer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     @action(detail=False, methods=["get"])
     def history(self, request):
         """List my past loans (returned, transferred)."""
         mark_overdue_loans()
         qs = (
             Loan.objects.filter(user=request.user)
-            .exclude(status__in=[Loan.StatusChoices.ACTIVE, Loan.StatusChoices.OVERDUE])
+            .exclude(
+                status__in=[
+                    Loan.StatusChoices.ACTIVE,
+                    Loan.StatusChoices.OVERDUE,
+                    Loan.StatusChoices.PENDING_TRANSFER,
+                ]
+            )
             .select_related("book", "book_copy")
             .order_by("-returned_at", "-updated_at")
+        )
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+
+class TransferRequestViewSet(
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    GET  /api/transfers/ → list incoming pending transfers
+    POST /api/transfers/{id}/accept/ → accept an incoming transfer
+    POST /api/transfers/{id}/reject/ → reject an incoming transfer
+    POST /api/transfers/{id}/cancel/ → cancel an outgoing transfer (as initiator)
+    """
+
+    serializer_class = TransferRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            TransferRequest.objects.filter(
+                to_user=self.request.user, status=TransferRequest.StatusChoices.PENDING
+            )
+            .select_related("loan__book", "from_user")
+            .order_by("-created_at")
+        )
+
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        transfer = get_object_or_404(TransferRequest, id=pk, to_user=request.user)
+        try:
+            new_loan = accept_transfer(user=request.user, transfer=transfer)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = LoanSerializer(new_loan)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        transfer = get_object_or_404(TransferRequest, id=pk, to_user=request.user)
+        try:
+            reject_transfer(user=request.user, transfer=transfer)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"status": "rejected"})
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        transfer = get_object_or_404(TransferRequest, id=pk, from_user=request.user)
+        try:
+            cancel_transfer(user=request.user, transfer=transfer)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"status": "cancelled"})
+
+    @action(detail=False, methods=["get"])
+    def history(self, request):
+        """List my outgoing transfer requests and their final status."""
+        qs = (
+            TransferRequest.objects.filter(from_user=request.user)
+            .exclude(status=TransferRequest.StatusChoices.PENDING)
+            .select_related("loan__book", "to_user")
+            .order_by("-created_at")
         )
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
