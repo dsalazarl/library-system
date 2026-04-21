@@ -6,6 +6,10 @@ export interface Book {
   title: string;
   author: string;
   isbn: string | null;
+  publication_year: number | null;
+  genre: string | null;
+  publisher: string | null;
+  description: string | null;
   is_active: boolean;
   available_copies_count: number;
   total_copies_count: number;

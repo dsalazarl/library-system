@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import User, Book, Reservation, Loan
+from .models import User, Book, BookCopy, Reservation, Loan
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -41,6 +41,10 @@ class BookSerializer(serializers.ModelSerializer):
             "title",
             "author",
             "isbn",
+            "publication_year",
+            "genre",
+            "publisher",
+            "description",
             "is_active",
             "available_copies_count",
             "total_copies_count",
@@ -50,6 +54,15 @@ class BookSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "is_active", "created_at", "updated_at")
+
+
+class BookCopyStatusSerializer(serializers.ModelSerializer):
+    current_user = serializers.EmailField(source="current_holder.email", read_only=True)
+    expires_at = serializers.DateTimeField(source="current_expiry", read_only=True)
+
+    class Meta:
+        model = BookCopy
+        fields = ("id", "status", "current_user", "expires_at")
 
 
 class ReservationSerializer(serializers.ModelSerializer):

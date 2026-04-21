@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Search, X, Clock, ShoppingBag, Pencil, Trash2, AlertCircle } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown, Search, X, Clock, ShoppingBag, Pencil, Trash2, AlertCircle, List } from 'lucide-react';
 import { useBooks, type Book, type BookFormData } from '../../hooks/useBooks';
 import { useAuthStore } from '../../store/authStore';
 import { useReservations } from '../../hooks/useReservations';
 import { useLoans } from '../../hooks/useLoans';
 import BookFormModal from './BookFormModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
+import BookCopyStatusModal from './BookCopyStatusModal';
 
-type SortKey = 'title' | 'author' | 'isbn';
+type SortKey = 'title' | 'author' | 'isbn' | 'publication_year';
 type SortDirection = 'asc' | 'desc';
 
 interface SortConfig {
@@ -106,6 +107,8 @@ export default function BookTable() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | undefined>(undefined);
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
+  const [statusBook, setStatusBook] = useState<Book | null>(null);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
   // Sorting — default: title ascending
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'title', direction: 'asc' });
@@ -130,6 +133,11 @@ export default function BookTable() {
   const handleDeleteClick = (book: Book) => {
     setBookToDelete(book);
     setIsDeleteModalOpen(true);
+  };
+
+  const handleViewStatus = (book: Book) => {
+    setStatusBook(book);
+    setIsStatusModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
@@ -164,15 +172,22 @@ export default function BookTable() {
     if (q) {
       result = result.filter((book) => {
         const value = book[searchField];
-        return (value ?? '').toLowerCase().includes(q);
+        return (value?.toString() ?? '').toLowerCase().includes(q);
       });
     }
 
     // Sort
     result.sort((a, b) => {
-      const aVal = (a[sortConfig.key] ?? '').toLowerCase();
-      const bVal = (b[sortConfig.key] ?? '').toLowerCase();
-      const cmp = aVal.localeCompare(bVal, 'es', { sensitivity: 'base' });
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      
+      const aStr = (aVal ?? '').toString().toLowerCase();
+      const bStr = (bVal ?? '').toString().toLowerCase();
+      const cmp = aStr.localeCompare(bStr, 'es', { sensitivity: 'base' });
       return sortConfig.direction === 'asc' ? cmp : -cmp;
     });
 
@@ -231,6 +246,7 @@ export default function BookTable() {
           <option value="title">Por Título</option>
           <option value="author">Por Autor</option>
           <option value="isbn">Por ISBN</option>
+          <option value="publication_year">Por Año</option>
         </select>
 
         {searchQuery && (
@@ -260,8 +276,8 @@ export default function BookTable() {
             <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide border-b border-slate-200">
               <SortableHeader column="title" label="Título" sortConfig={sortConfig} onSort={handleSort} />
               <SortableHeader column="author" label="Autor" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableHeader column="isbn" label="ISBN" sortConfig={sortConfig} onSort={handleSort} />
-              <th className="px-6 py-3 font-medium">Copias Disponibles</th>
+              <SortableHeader column="publication_year" label="Año" sortConfig={sortConfig} onSort={handleSort} />
+              <th className="px-6 py-3 font-medium">Copias</th>
               {isLibrarian && <th className="px-6 py-3 font-medium text-right">Acciones</th>}
               {isLibraryUser && <th className="px-6 py-3 font-medium text-right">Acciones</th>}
             </tr>
@@ -281,9 +297,14 @@ export default function BookTable() {
             ) : (
               processedBooks.map((book) => (
                 <tr key={book.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900">{book.title}</td>
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-slate-900">{book.title}</div>
+                    <div className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase">
+                      {book.isbn ? `ISBN: ${book.isbn}` : 'Sin ISBN'}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 text-slate-600">{book.author}</td>
-                  <td className="px-6 py-4 text-slate-400 text-sm">{book.isbn || '—'}</td>
+                  <td className="px-6 py-4 text-slate-600 text-sm">{book.publication_year || '—'}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${
@@ -298,6 +319,14 @@ export default function BookTable() {
                   {isLibrarian && (
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => handleViewStatus(book)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 text-xs font-semibold shadow-sm"
+                        >
+                          <List className="h-3.5 w-3.5" />
+                          Ver estado
+                        </button>
+
                         <button
                           onClick={() => handleEdit(book)}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded-lg transition-colors border border-sky-200 text-xs font-semibold shadow-sm"
@@ -454,6 +483,14 @@ export default function BookTable() {
         title={bookToDelete?.title ?? ''}
         isDeleting={isDeleting}
       />
+
+      {statusBook && (
+        <BookCopyStatusModal
+          isOpen={isStatusModalOpen}
+          onClose={() => setIsStatusModalOpen(false)}
+          book={statusBook}
+        />
+      )}
     </div>
   );
 }

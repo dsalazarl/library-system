@@ -22,9 +22,13 @@ erDiagram
 
     books {
         UUID id PK
-        string title
-        string author
-        string isbn "Optional but recommended"
+        string title "UK: (title, author)"
+        string author "UK: (title, author)"
+        string isbn
+        int publication_year
+        string genre "enum: fiction, fantasy, etc."
+        string publisher
+        text description
         datetime created_at
         datetime updated_at
     }

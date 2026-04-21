@@ -3,12 +3,15 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.generics import get_object_or_404
 from rest_framework.views import APIView
+from django.db import transaction
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 
 from .serializers import (
     RegisterSerializer,
     UserSerializer,
     BookSerializer,
+    BookCopyStatusSerializer,
     ReservationSerializer,
     LoanSerializer,
 )
@@ -44,8 +47,34 @@ class BookViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsLibrarianOrReadOnly]
 
     def get_queryset(self):
-        # By default, only return active books
-        return Book.objects.filter(is_active=True).order_by("title")
+        queryset = Book.objects.filter(is_active=True)
+
+        search = self.request.query_params.get("search")
+        if search:
+            q_objects = (
+                Q(title__icontains=search)
+                | Q(author__icontains=search)
+                | Q(isbn__icontains=search)
+            )
+            # Try to filter by year if search is a number
+            if search.isdigit():
+                q_objects |= Q(publication_year=int(search))
+            queryset = queryset.filter(q_objects)
+
+        ordering = self.request.query_params.get("ordering")
+        if ordering in [
+            "publication_year",
+            "-publication_year",
+            "title",
+            "-title",
+            "author",
+            "-author",
+        ]:
+            queryset = queryset.order_by(ordering)
+        else:
+            queryset = queryset.order_by("title")
+
+        return queryset
 
     def perform_create(self, serializer):
         copies_count = serializer.validated_data.pop("copies_count", 1)
@@ -61,6 +90,19 @@ class BookViewSet(viewsets.ModelViewSet):
         instance.save()
         # Update associated copies status
         instance.copies.all().update(status="deleted_by_librarian")
+
+    @action(detail=True, methods=["get"])
+    def copies_status(self, request, pk=None):
+        """Librarian-only: See details of each copy and who has it."""
+        if request.user.role != User.RoleChoices.LIBRARIAN:
+            return Response(
+                {"error": "No autorizado."}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        book = self.get_object()
+        copies = book.copies.all().order_by("id")
+        serializer = BookCopyStatusSerializer(copies, many=True)
+        return Response(serializer.data)
 
 
 class ReservationViewSet(
@@ -128,7 +170,6 @@ class ReservationViewSet(
                 {"error": "La reserva no está activa."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        from django.db import transaction
 
         with transaction.atomic():
             reservation.status = Reservation.StatusChoices.CANCELLED

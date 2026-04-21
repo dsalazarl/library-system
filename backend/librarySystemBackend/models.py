@@ -33,16 +33,44 @@ class User(AbstractUser):
 
 
 class Book(models.Model):
+    class GenreChoices(models.TextChoices):
+        FICTION = "fiction", _("Ficción")
+        NON_FICTION = "non_fiction", _("No Ficción")
+        MYSTERY = "mystery", _("Misterio")
+        SCI_FI = "sci_fi", _("Ciencia Ficción")
+        FANTASY = "fantasy", _("Fantasía")
+        BIOGRAPHY = "biography", _("Biografía")
+        HISTORY = "history", _("Historia")
+        ROMANCE = "romance", _("Romance")
+        HORROR = "horror", _("Terror")
+        CLASSICS = "classics", _("Clásicos")
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     author = models.CharField(max_length=255)
     isbn = models.CharField(max_length=20, blank=True, null=True)
+
+    # New metadata fields
+    publication_year = models.IntegerField(blank=True, null=True)
+    genre = models.CharField(
+        max_length=50, choices=GenreChoices.choices, blank=True, null=True
+    )
+    publisher = models.CharField(max_length=255, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "books"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["title", "author"],
+                name="unique_book_title_author",
+                violation_error_message="Ya existe un libro con este título y autor en el catálogo.",
+            )
+        ]
 
     def __str__(self):
         return f"{self.title} by {self.author}"
@@ -83,6 +111,38 @@ class BookCopy(models.Model):
 
     def __str__(self):
         return f"{self.book.title} - Copy {self.id}"
+
+    @property
+    def current_holder(self):
+        """Returns the User who currently has an active reservation or loan for this copy."""
+        if self.status == self.StatusChoices.RESERVED:
+            res = self.reservations.filter(status="active").first()
+            return res.user if res else None
+        if self.status in [
+            self.StatusChoices.BORROWED,
+            self.StatusChoices.PENDING_TRANSFER,
+        ]:
+            loan = self.loans.filter(
+                status__in=["active", "pending_transfer", "overdue"]
+            ).first()
+            return loan.user if loan else None
+        return None
+
+    @property
+    def current_expiry(self):
+        """Returns the expiration or due date for the active reservation or loan."""
+        if self.status == self.StatusChoices.RESERVED:
+            res = self.reservations.filter(status="active").first()
+            return res.expires_at if res else None
+        if self.status in [
+            self.StatusChoices.BORROWED,
+            self.StatusChoices.PENDING_TRANSFER,
+        ]:
+            loan = self.loans.filter(
+                status__in=["active", "pending_transfer", "overdue"]
+            ).first()
+            return loan.due_date if loan else None
+        return None
 
 
 class Reservation(models.Model):
