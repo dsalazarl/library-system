@@ -1,0 +1,9 @@
+# Project Dependencies
+django==5.2.13
+djangorestframework
+django-cors-headers
+djangorestframework-simplejwt
+gunicorn
+psycopg2-binary
+dj-database-url
+whitenoise
