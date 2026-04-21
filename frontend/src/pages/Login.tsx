@@ -25,7 +25,7 @@ export default function Login() {
       setToken(response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
       await fetchUser();
-      navigate('/');
+      navigate('/dashboard');
     } catch {
       setError('Credenciales incorrectas. Por favor, intenta de nuevo.');
     } finally {
@@ -54,7 +54,7 @@ export default function Login() {
             {error && (
               <div className="rounded-md bg-red-50 p-4 border border-red-200">
                 <div className="flex">
-                  <div className="flex-shrink-0">
+                  <div className="shrink-0">
                     <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
                   </div>
                   <div className="ml-3">
