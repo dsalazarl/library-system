@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Search, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown, Search, X, Clock, ShoppingBag } from 'lucide-react';
 import { useBooks, type Book, type BookFormData } from '../../hooks/useBooks';
 import { useAuthStore } from '../../store/authStore';
+import { useReservations } from '../../hooks/useReservations';
+import { useLoans } from '../../hooks/useLoans';
 import BookFormModal from './BookFormModal';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 
@@ -45,6 +47,58 @@ export default function BookTable() {
   const { books, isLoading, error, createBook, isCreating, updateBook, isUpdating, deleteBook, isDeleting } = useBooks();
   const { user } = useAuthStore();
   const isLibrarian = user?.role === 'librarian';
+  const isLibraryUser = user?.role === 'library_user';
+
+  // Reservations & loans (only used for library_user role)
+  const {
+    reservations,
+    reserveBook,
+    isReserving,
+    checkoutFromReservation,
+    isCheckingOut: isCheckingOutFromReservation,
+  } = useReservations();
+  const { loans, checkoutBook, isCheckingOut } = useLoans();
+
+  // Track per-book pending actions to show spinner on correct row
+  const [pendingBookId, setPendingBookId] = useState<string | null>(null);
+
+  // Sets of book IDs already reserved/borrowed by the current user
+  const reservedBookIds = new Set(reservations.map((r) => r.book_id));
+  const borrowedBookIds = new Set(loans.map((l) => l.book_id));
+
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const handleReserve = async (book: Book) => {
+    setActionError(null);
+    setPendingBookId(book.id);
+    try {
+      await reserveBook(book.id);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setActionError(msg ?? 'Error al reservar.');
+    } finally {
+      setPendingBookId(null);
+    }
+  };
+
+  const handleCheckout = async (book: Book) => {
+    setActionError(null);
+    setPendingBookId(book.id);
+    try {
+      // If user has an active reservation for this book, convert it; otherwise do direct checkout
+      const reservation = reservations.find((r) => r.book_id === book.id);
+      if (reservation) {
+        await checkoutFromReservation(reservation.id);
+      } else {
+        await checkoutBook(book.id);
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setActionError(msg ?? 'Error al pedir prestado.');
+    } finally {
+      setPendingBookId(null);
+    }
+  };
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -184,6 +238,16 @@ export default function BookTable() {
         )}
       </div>
 
+      {/* Action error banner */}
+      {actionError && (
+        <div className="mx-6 mt-3 px-4 py-2 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+          <span className="text-sm text-red-600">{actionError}</span>
+          <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-600 ml-3">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
@@ -194,13 +258,14 @@ export default function BookTable() {
               <SortableHeader column="isbn" label="ISBN" sortConfig={sortConfig} onSort={handleSort} />
               <th className="px-6 py-3 font-medium">Copias Disponibles</th>
               {isLibrarian && <th className="px-6 py-3 font-medium text-right">Acciones</th>}
+              {isLibraryUser && <th className="px-6 py-3 font-medium text-right">Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {processedBooks.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isLibrarian ? 5 : 4}
+                  colSpan={isLibrarian || isLibraryUser ? 5 : 4}
                   className="px-6 py-10 text-center text-slate-400 text-sm"
                 >
                   {searchQuery
@@ -268,6 +333,67 @@ export default function BookTable() {
                       </span>
                     </td>
                   )}
+
+                  {/* Library user actions */}
+                  {isLibraryUser && (() => {
+                    const isReserved = reservedBookIds.has(book.id);
+                    const isBorrowed = borrowedBookIds.has(book.id);
+                    const noneAvailable = book.available_copies_count === 0;
+                    const isPending = pendingBookId === book.id;
+                    const anyPending = isReserving || isCheckingOut || isCheckingOutFromReservation;
+
+                    return (
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Reserve button */}
+                          <span className="relative inline-block group">
+                            <button
+                              onClick={() => !isReserved && !isBorrowed && !noneAvailable && handleReserve(book)}
+                              disabled={isPending || anyPending || isReserved || isBorrowed || noneAvailable}
+                              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                isReserved
+                                  ? 'bg-amber-100 text-amber-700 cursor-default'
+                                  : isBorrowed || noneAvailable
+                                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer'
+                              }`}
+                            >
+                              <Clock className="h-3.5 w-3.5" />
+                              {isReserved ? 'Reservado' : 'Reservar'}
+                            </button>
+                            {(isBorrowed || (noneAvailable && !isReserved)) && (
+                              <span role="tooltip" className="absolute bottom-full right-0 mb-2 z-20 w-48 px-2.5 py-1.5 text-xs text-white bg-slate-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                {isBorrowed ? 'Ya tienes este libro en préstamo.' : 'Sin copias disponibles.'}
+                              </span>
+                            )}
+                          </span>
+
+                          {/* Checkout button */}
+                          <span className="relative inline-block group">
+                            <button
+                              onClick={() => !isBorrowed && (isReserved || !noneAvailable) && handleCheckout(book)}
+                              disabled={isPending || anyPending || isBorrowed || (!isReserved && noneAvailable)}
+                              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                isBorrowed
+                                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                  : (!isReserved && noneAvailable)
+                                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                  : 'bg-sky-50 text-sky-700 hover:bg-sky-100 cursor-pointer'
+                              }`}
+                            >
+                              <ShoppingBag className="h-3.5 w-3.5" />
+                              {isBorrowed ? 'Prestado' : 'Pedir prestado'}
+                            </button>
+                            {isBorrowed && (
+                              <span role="tooltip" className="absolute bottom-full right-0 mb-2 z-20 w-48 px-2.5 py-1.5 text-xs text-white bg-slate-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                Ya tienes este libro en préstamo.
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </td>
+                    );
+                  })()}
                 </tr>
               ))
             )}

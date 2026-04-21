@@ -132,7 +132,10 @@ To enforce the concurrent limits and rules safely (avoiding race conditions), th
   - Partial Unique Indexes or application-level advisory locks to ensure a user doesn't exceed the 3 loans/5 reservations limit.
   - Partial Unique Indexes combining `user_id` and `book_id` (joined through `book_copy_id`) where status is active, to prevent a user from borrowing/reserving two copies of the same title.
     - **Note on Implementation:** Relational databases cannot use `JOIN`s inside a `UNIQUE` constraint or partial index. Therefore, we **denormalize** the data by storing `book_id` directly in the `reservations` and `loans` tables. This allows us to use database-level `UniqueConstraint` natively to guarantee this rule and prevent race conditions.
-- **Background Jobs:** A periodic task (e.g., Celery beat) to mark expired reservations as `expired` and free the `book_copies` back to `available`.
+- **Automated Expiration (Check-on-access + Cron):** 
+  - Stale reservations (1h+) are automatically marked as `expired` and their copies freed. 
+  - Overdue loans (2d+) are marked as `overdue` for visual feedback.
+  - **Implementation:** The system uses a **Check-on-access** pattern (updates DB on every request) + a **Management Command** (`expire_reservations`) designed for Render Cron Jobs (no extra Redis/Celery required).
 
 ## Getting Started
 
@@ -182,6 +185,7 @@ The application will be available at `http://localhost:5173`.
 | `python manage.py runserver` | Starts the Django development server. |
 | `python manage.py migrate` | Applies database migrations. |
 | `python manage.py seed_data` | Populates the database with test users and books. |
+| `python manage.py expire_reservations` | Manually triggers the expiration of reservations and marking of overdue loans. |
 | `npm run dev` | Starts the Vite development server for React. |
 | `npm run build` | Builds the frontend for production. |
 

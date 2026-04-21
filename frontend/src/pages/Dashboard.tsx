@@ -1,15 +1,20 @@
 import { useAuthStore } from '../store/authStore';
 import { BookOpen, LogOut } from 'lucide-react';
 import BookTable from '../components/books/BookTable';
+import MyLoansPanel from '../components/loans/MyLoansPanel';
 
 export default function Dashboard() {
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
 
   const isLibrarian = user?.role === 'librarian';
-  const pageTitle = isLibrarian ? 'Bienvenido al Panel de Bibliotecario' : 'Bienvenido a la Biblioteca';
-  const pageSubtitle = isLibrarian 
-    ? 'Aquí podrás agregar, quitar y modificar libros en el catálogo.' 
+  const isLibraryUser = user?.role === 'library_user';
+
+  const pageTitle = isLibrarian
+    ? 'Bienvenido al Panel de Bibliotecario'
+    : 'Bienvenido a la Biblioteca';
+  const pageSubtitle = isLibrarian
+    ? 'Aquí podrás agregar, quitar y modificar libros en el catálogo.'
     : 'Aquí podrás buscar libros, reservarlos y pedir préstamos.';
   const bgClass = isLibrarian ? 'bg-sky-200' : 'bg-slate-50';
 
@@ -41,10 +46,11 @@ export default function Dashboard() {
       <main className="flex-1 max-w-7xl w-full mx-auto py-10 px-4 sm:px-6 lg:px-8">
         <div className="glass-panel p-8 mb-6">
           <h1 className="text-2xl font-bold text-slate-900 mb-4">{pageTitle}</h1>
-          <p className="text-slate-600">
-            {pageSubtitle}
-          </p>
+          <p className="text-slate-600">{pageSubtitle}</p>
         </div>
+
+        {/* Active loans & reservations panel — only for library_user, only when there is data */}
+        {isLibraryUser && <MyLoansPanel />}
 
         <BookTable />
       </main>
