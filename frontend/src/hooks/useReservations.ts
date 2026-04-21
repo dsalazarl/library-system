@@ -45,6 +45,15 @@ export const useReservations = () => {
     refetchInterval: 30_000,
   });
 
+  const historyQuery = useQuery({
+    queryKey: [...QUERY_KEY, 'history'],
+    queryFn: async (): Promise<Reservation[]> => {
+      const { data } = await api.get('/reservations/history/');
+      return data;
+    },
+    refetchInterval: 60_000,
+  });
+
   const reserveMutation = useMutation({
     mutationFn: reserveBook,
     onSuccess: () => {
@@ -73,7 +82,9 @@ export const useReservations = () => {
 
   return {
     reservations: reservationsQuery.data ?? [],
+    history: historyQuery.data ?? [],
     isLoading: reservationsQuery.isLoading,
+    isHistoryLoading: historyQuery.isLoading,
     error: reservationsQuery.error,
     reserveBook: reserveMutation.mutateAsync,
     isReserving: reserveMutation.isPending,

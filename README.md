@@ -44,9 +44,9 @@ The system strictly enforces the following rules at both the application and dat
    - A user **cannot** have more than one copy of the same book title (whether reserved or borrowed) simultaneously.
 6. **Data Deletion Policy:** The system uses a **soft delete** approach for books (via an `is_active` flag). 
    - **Deletion Constraint:** A librarian **cannot** delete a book if any of its copies are currently reserved, borrowed, or pending transfer. The "Delete" button is disabled with an informative tooltip in such cases.
-   - When a librarian deletes a book (only allowed if all copies are available), it is hidden from the active catalog.
-   - All associated `BookCopy` records are updated to `deleted_by_librarian` status.
-   - Historical records of past reservations and loans remain preserved for audit purposes.
+    - When a librarian deletes a book (only allowed if all copies are available), it is hidden from the active catalog.
+    - All associated `BookCopy` records are updated to `deleted_by_librarian` status.
+7. **Activity History:** Historical records of past reservations and loans are preserved and visible to users in their "Historial" tab for audit purposes. All lists (Catalog and Activity) include automatic scrolling for sets larger than 10 items.
 
 ## Project Structure
 

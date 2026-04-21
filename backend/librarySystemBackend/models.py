@@ -106,6 +106,7 @@ class Reservation(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     expires_at = models.DateTimeField()
     status = models.CharField(
         max_length=20, choices=StatusChoices.choices, default=StatusChoices.ACTIVE
@@ -156,6 +157,7 @@ class Loan(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="all_loans")
 
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     due_date = models.DateTimeField()
     returned_at = models.DateTimeField(blank=True, null=True)
     status = models.CharField(
@@ -211,6 +213,7 @@ class TransferRequest(models.Model):
         User, on_delete=models.CASCADE, related_name="received_transfers"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(
         max_length=20, choices=StatusChoices.choices, default=StatusChoices.PENDING
     )

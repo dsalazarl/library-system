@@ -40,6 +40,15 @@ export const useLoans = () => {
     refetchInterval: 30_000,
   });
 
+  const historyQuery = useQuery({
+    queryKey: [...QUERY_KEY, 'history'],
+    queryFn: async (): Promise<Loan[]> => {
+      const { data } = await api.get('/loans/history/');
+      return data;
+    },
+    refetchInterval: 60_000,
+  });
+
   const checkoutMutation = useMutation({
     mutationFn: checkoutBook,
     onSuccess: () => {
@@ -52,13 +61,16 @@ export const useLoans = () => {
     mutationFn: returnBook,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: [...QUERY_KEY, 'history'] });
       queryClient.invalidateQueries({ queryKey: ['books'] });
     },
   });
 
   return {
     loans: loansQuery.data ?? [],
+    history: historyQuery.data ?? [],
     isLoading: loansQuery.isLoading,
+    isHistoryLoading: historyQuery.isLoading,
     error: loansQuery.error,
     checkoutBook: checkoutMutation.mutateAsync,
     isCheckingOut: checkoutMutation.isPending,

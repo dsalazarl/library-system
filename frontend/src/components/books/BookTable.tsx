@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Search, X, Clock, ShoppingBag } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronsUpDown, Search, X, Clock, ShoppingBag, Pencil, Trash2, AlertCircle } from 'lucide-react';
 import { useBooks, type Book, type BookFormData } from '../../hooks/useBooks';
 import { useAuthStore } from '../../store/authStore';
 import { useReservations } from '../../hooks/useReservations';
@@ -179,6 +179,8 @@ export default function BookTable() {
     return result;
   }, [books, searchQuery, searchField, sortConfig]);
 
+  const showScroll = processedBooks.length > 10;
+
   // --- Render ---
   if (isLoading) return <div className="p-4 text-slate-500">Cargando libros...</div>;
   if (error) return <div className="p-4 text-red-500">Error al cargar los libros.</div>;
@@ -240,8 +242,11 @@ export default function BookTable() {
 
       {/* Action error banner */}
       {actionError && (
-        <div className="mx-6 mt-3 px-4 py-2 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
-          <span className="text-sm text-red-600">{actionError}</span>
+        <div className="mx-6 mt-3 px-4 py-2 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-red-500" />
+            <span className="text-sm text-red-600 font-medium">{actionError}</span>
+          </div>
           <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-600 ml-3">
             <X className="h-4 w-4" />
           </button>
@@ -249,10 +254,10 @@ export default function BookTable() {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className={`overflow-x-auto ${showScroll ? 'max-h-[600px] overflow-y-auto' : ''}`}>
         <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+          <thead className={showScroll ? 'sticky top-0 z-10' : ''}>
+            <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide border-b border-slate-200">
               <SortableHeader column="title" label="Título" sortConfig={sortConfig} onSort={handleSort} />
               <SortableHeader column="author" label="Autor" sortConfig={sortConfig} onSort={handleSort} />
               <SortableHeader column="isbn" label="ISBN" sortConfig={sortConfig} onSort={handleSort} />
@@ -292,45 +297,49 @@ export default function BookTable() {
                   </td>
                   {isLibrarian && (
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleEdit(book)}
-                        className="text-sky-600 hover:text-sky-800 mr-4 font-medium text-sm transition-colors"
-                      >
-                        Editar
-                      </button>
-
-                      {/* Delete button with tooltip when disabled */}
-                      <span className="relative inline-block group">
+                      <div className="flex items-center justify-end gap-3">
                         <button
-                          onClick={() => book.can_delete && handleDeleteClick(book)}
-                          disabled={isDeleting || !book.can_delete}
-                          className={`font-medium text-sm transition-colors ${
-                            book.can_delete
-                              ? 'text-red-500 hover:text-red-700 cursor-pointer'
-                              : 'text-slate-300 cursor-not-allowed'
-                          }`}
+                          onClick={() => handleEdit(book)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 text-sky-700 hover:bg-sky-100 rounded-lg transition-colors border border-sky-200 text-xs font-semibold shadow-sm"
                         >
-                          Eliminar
+                          <Pencil className="h-3.5 w-3.5" />
+                          Editar
                         </button>
 
-                        {/* Tooltip — only visible when can_delete is false */}
-                        {!book.can_delete && (
-                          <span
-                            role="tooltip"
-                            className="
-                              absolute bottom-full right-0 mb-2 z-20
-                              w-64 px-3 py-2 text-xs leading-snug text-white
-                              bg-slate-700 rounded-md shadow-lg
-                              opacity-0 group-hover:opacity-100
-                              transition-opacity duration-150
-                              pointer-events-none
-                            "
+                        {/* Delete button with tooltip when disabled */}
+                        <span className="relative inline-flex group">
+                          <button
+                            onClick={() => book.can_delete && handleDeleteClick(book)}
+                            disabled={isDeleting || !book.can_delete}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all text-xs font-semibold border shadow-sm ${
+                              book.can_delete
+                                ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100 cursor-pointer'
+                                : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
+                            }`}
                           >
-                            No se puede eliminar un libro sin que todas sus copias hayan sido devueltas.
-                            <span className="absolute top-full right-4 border-4 border-transparent border-t-slate-700" />
-                          </span>
-                        )}
-                      </span>
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Eliminar
+                          </button>
+
+                          {/* Tooltip — only visible when can_delete is false */}
+                          {!book.can_delete && (
+                            <span
+                              role="tooltip"
+                              className="
+                                absolute bottom-full right-0 mb-2 z-20
+                                w-max max-w-[200px] px-2.5 py-1.5 text-xs text-center text-white
+                                bg-slate-700 rounded-md shadow-lg
+                                opacity-0 group-hover:opacity-100
+                                transition-opacity duration-200
+                                pointer-events-none
+                              "
+                            >
+                              No se puede eliminar: existen copias reservadas o prestadas.
+                              <span className="absolute top-full right-4 border-4 border-transparent border-t-slate-700" />
+                            </span>
+                          )}
+                        </span>
+                      </div>
                     </td>
                   )}
 
@@ -344,49 +353,76 @@ export default function BookTable() {
 
                     return (
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-3">
                           {/* Reserve button */}
-                          <span className="relative inline-block group">
+                          <span className="relative inline-flex group">
                             <button
                               onClick={() => !isReserved && !isBorrowed && !noneAvailable && handleReserve(book)}
                               disabled={isPending || anyPending || isReserved || isBorrowed || noneAvailable}
-                              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border w-28 ${
                                 isReserved
-                                  ? 'bg-amber-100 text-amber-700 cursor-default'
+                                  ? 'bg-amber-100 text-amber-700 border-amber-200 cursor-not-allowed opacity-80 shadow-sm'
                                   : isBorrowed || noneAvailable
-                                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer'
+                                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100 hover:scale-[1.02] active:scale-[0.98] cursor-pointer border-amber-200/50 shadow-sm'
                               }`}
                             >
                               <Clock className="h-3.5 w-3.5" />
                               {isReserved ? 'Reservado' : 'Reservar'}
                             </button>
-                            {(isBorrowed || (noneAvailable && !isReserved)) && (
-                              <span role="tooltip" className="absolute bottom-full right-0 mb-2 z-20 w-48 px-2.5 py-1.5 text-xs text-white bg-slate-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                {isBorrowed ? 'Ya tienes este libro en préstamo.' : 'Sin copias disponibles.'}
+                            
+                            {/* Terms tooltip (Duration) */}
+                            {!isReserved && !isBorrowed && !noneAvailable && (
+                              <span role="tooltip" className="absolute bottom-full right-0 mb-2 z-20 w-max whitespace-nowrap px-2.5 py-1.5 text-xs text-center text-white bg-slate-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                1 hora de duración.
+                                <span className="absolute top-full right-4 border-4 border-transparent border-t-slate-700" />
+                              </span>
+                            )}
+
+                            {(isBorrowed || isReserved || (noneAvailable && !isReserved)) && (
+                              <span role="tooltip" className="absolute bottom-full right-0 mb-2 z-20 w-max whitespace-nowrap px-2.5 py-1.5 text-xs text-center text-white bg-slate-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                {isReserved ? 'Ya tienes este libro en reserva.' : isBorrowed ? 'Ya tienes este libro en préstamo.' : 'Sin copias disponibles.'}
+                                <span className="absolute top-full right-4 border-4 border-transparent border-t-slate-700" />
                               </span>
                             )}
                           </span>
 
                           {/* Checkout button */}
-                          <span className="relative inline-block group">
+                          <span className="relative inline-flex group">
                             <button
                               onClick={() => !isBorrowed && (isReserved || !noneAvailable) && handleCheckout(book)}
                               disabled={isPending || anyPending || isBorrowed || (!isReserved && noneAvailable)}
-                              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border shadow-sm w-36 ${
                                 isBorrowed
-                                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                                   : (!isReserved && noneAvailable)
-                                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                                  : 'bg-sky-50 text-sky-700 hover:bg-sky-100 cursor-pointer'
+                                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                                  : 'bg-sky-50 text-sky-700 hover:bg-sky-100 hover:scale-[1.02] active:scale-[0.98] cursor-pointer border-sky-200/50'
                               }`}
                             >
                               <ShoppingBag className="h-3.5 w-3.5" />
                               {isBorrowed ? 'Prestado' : 'Pedir prestado'}
                             </button>
+                            
+                            {/* Terms tooltip (Duration) */}
+                            {!isBorrowed && (isReserved || !noneAvailable) && (
+                              <span role="tooltip" className="absolute bottom-full right-0 mb-2 z-20 w-max whitespace-nowrap px-2.5 py-1.5 text-xs text-center text-white bg-slate-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                2 días de duración.
+                                <span className="absolute top-full right-4 border-4 border-transparent border-t-slate-700" />
+                              </span>
+                            )}
+
                             {isBorrowed && (
-                              <span role="tooltip" className="absolute bottom-full right-0 mb-2 z-20 w-48 px-2.5 py-1.5 text-xs text-white bg-slate-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                              <span role="tooltip" className="absolute bottom-full right-0 mb-2 z-20 w-max whitespace-nowrap px-2.5 py-1.5 text-xs text-center text-white bg-slate-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                                 Ya tienes este libro en préstamo.
+                                <span className="absolute top-full right-4 border-4 border-transparent border-t-slate-700" />
+                              </span>
+                            )}
+
+                            {(!isReserved && noneAvailable && !isBorrowed) && (
+                              <span role="tooltip" className="absolute bottom-full right-0 mb-2 z-20 w-max whitespace-nowrap px-2.5 py-1.5 text-xs text-center text-white bg-slate-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                Sin copias disponibles.
+                                <span className="absolute top-full right-4 border-4 border-transparent border-t-slate-700" />
                               </span>
                             )}
                           </span>

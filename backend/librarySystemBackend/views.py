@@ -138,6 +138,19 @@ class ReservationViewSet(
 
         return Response({"status": "cancelled"})
 
+    @action(detail=False, methods=["get"])
+    def history(self, request):
+        """List my past reservations (fulfilled, expired, cancelled)."""
+        expire_stale_reservations()
+        qs = (
+            Reservation.objects.filter(user=request.user)
+            .exclude(status=Reservation.StatusChoices.ACTIVE)
+            .select_related("book", "book_copy")
+            .order_by("-updated_at")
+        )
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
 
 class LoanViewSet(
     mixins.ListModelMixin,
@@ -191,4 +204,17 @@ class LoanViewSet(
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(loan)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def history(self, request):
+        """List my past loans (returned, transferred)."""
+        mark_overdue_loans()
+        qs = (
+            Loan.objects.filter(user=request.user)
+            .exclude(status__in=[Loan.StatusChoices.ACTIVE, Loan.StatusChoices.OVERDUE])
+            .select_related("book", "book_copy")
+            .order_by("-returned_at", "-updated_at")
+        )
+        serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
