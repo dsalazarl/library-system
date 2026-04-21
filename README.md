@@ -21,7 +21,7 @@ A web-based library management system that supports book cataloging, reservation
   - **Client State**: `zustand` (for Auth persistence)
 - **Authentication**: JWT (JSON Web Tokens) via `djangorestframework-simplejwt`
 - **Database**: PostgreSQL (Production) / SQLite (Development)
-- **Deployment**: Render (Static Site + Web Service)
+- **Deployment**: Render (Web Services + PostgreSQL)
 
 ## Prerequisites
 
@@ -140,16 +140,16 @@ transfer_requests
 
 ### Constraint Implementation Notes
 
-To enforce the concurrent limits and rules safely (avoiding race conditions), the application should use:
-- **Database Transactions:** When creating a reservation or loan, the row for `book_copies` must be locked (`SELECT FOR UPDATE`) to prevent double-booking.
+To enforce concurrent limits and rules safely (avoiding race conditions), the application uses:
+- **Database Transactions:** When creating a reservation or loan, the row for `book_copies` is locked (`SELECT FOR UPDATE`) to prevent double-booking.
 - **Constraints/Triggers:** 
   - Partial Unique Indexes or application-level advisory locks to ensure a user doesn't exceed the 3 loans/5 reservations limit.
   - Partial Unique Indexes combining `user_id` and `book_id` (joined through `book_copy_id`) where status is active, to prevent a user from borrowing/reserving two copies of the same title.
-    - **Note on Implementation:** Relational databases cannot use `JOIN`s inside a `UNIQUE` constraint or partial index. Therefore, we **denormalize** the data by storing `book_id` directly in the `reservations` and `loans` tables. This allows us to use database-level `UniqueConstraint` natively to guarantee this rule and prevent race conditions.
+    - **Note on Implementation:** Relational databases cannot use `JOIN`s inside a `UNIQUE` constraint or partial index. Therefore, the data is **denormalized** by storing `book_id` directly in the `reservations` and `loans` tables. This guarantees this rule natively and prevents race conditions at the database level.
 - **Automated Expiration (Check-on-access + Cron):** 
   - Stale reservations (1h+) are automatically marked as `expired` and their copies freed. 
   - Overdue loans (2d+) are marked as `overdue` for visual feedback.
-  - **Implementation:** The system uses a **Check-on-access** pattern (updates DB on every request) + a **Management Command** (`expire_reservations`) designed for Render Cron Jobs (no extra Redis/Celery required).
+  - **Implementation:** The system uses a **Check-on-access** pattern (updates DB on every request) + a **Management Command** (`expire_reservations`) integrated with Render Cron Jobs (no extra Redis/Celery required).
 
 ## Getting Started
 
@@ -178,7 +178,7 @@ python manage.py seed_data  # Optional: Seed initial data
 python manage.py runserver
 ```
 
-The API will be available at `http://localhost:8000`.
+The API is available at `http://localhost:8000`.
 
 ### 3. Frontend Setup
 
@@ -190,7 +190,7 @@ npm install
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173`.
+The application is available at `http://localhost:5173`.
 
 ## Available Scripts
 
@@ -229,7 +229,7 @@ This project is configured for deployment on [Render](https://render.com) using 
 - **Backend**: Django Web Service.
   - Automatically runs migrations, collects static files, and seeds data via `build.sh`.
   - Served via `gunicorn`.
-- **Frontend**: React Static Site.
+- **Frontend**: React Web Service (Static Content).
   - Built using `npm run build`.
   - Automatically connects to the backend URL via `VITE_API_URL`.
 - **Cron Job**: Automated Expiration.
