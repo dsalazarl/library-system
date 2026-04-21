@@ -14,7 +14,7 @@ A web-based library management system that supports book cataloging, reservation
 
 ## Tech Stack
 
-- **Backend**: Django 5+ (Python) with Django REST Framework
+- **Backend**: Django 5.2+ (Python) with Django REST Framework
 - **Frontend**: React + Vite + Tailwind CSS v4
 - **State Management**: 
   - **Server State**: `@tanstack/react-query` (with Axios)
@@ -207,4 +207,40 @@ The application will be available at `http://localhost:5173`.
 
 - **CORS Issues:** Ensure `FRONTEND_URL` in backend `settings.py` matches your frontend port (default: `http://localhost:5173`).
 - **Tailwind v4 in Editor:** If you see `@theme` or `@apply` errors in your editor, ensure the **Tailwind CSS IntelliSense** extension is installed and the `.css` file is associated with the `tailwindcss` language mode (configured in `.vscode/settings.json`).
+
+## Deployment (Render)
+
+This project is configured for deployment on [Render](https://render.com) using a Blueprint (`render.yaml`).
+
+### Steps to Deploy
+
+1. **Push to GitHub**: Ensure all changes (including `render.yaml`) are pushed to your repository.
+2. **Open Render Dashboard**: Go to the [Blueprints](https://dashboard.render.com/blueprints) section.
+3. **Connect Repository**: Click "New Blueprint Instance" and select your repository.
+4. **Configure Secrets**: Render will automatically detect the services. You may need to fill in any environment variables marked as secret.
+5. **Apply**: Click "Apply" to start the deployment of the Database, Backend, and Frontend.
+
+> [!TIP]
+> After deployment, you can create a Django Superuser by going to the **Shell** tab of your `library-backend` service in Render and running: `python manage.py createsuperuser`.
+
+### Blueprint Components (All Free Tier)
+
+- **Database**: PostgreSQL.
+- **Backend**: Django Web Service.
+  - Automatically runs migrations, collects static files, and seeds data via `build.sh`.
+  - Served via `gunicorn`.
+- **Frontend**: React Static Site.
+  - Built using `npm run build`.
+  - Automatically connects to the backend URL via `VITE_API_URL`.
+- **Cron Job**: Automated Expiration.
+  - Runs `expire_reservations` every 5 minutes to maintain data integrity.
+
+### Environment Variables
+
+| Service | Variable | Description |
+| ------- | -------- | ----------- |
+| **Backend** | `SECRET_KEY` | Django secret key (generated automatically by Render). |
+| **Backend** | `DEBUG` | Set to `False` in production. |
+| **Backend** | `ALLOWED_HOSTS` | Domain of your backend service. |
+| **Frontend** | `VITE_API_URL` | URL of the backend service (provided by Render). |
 
