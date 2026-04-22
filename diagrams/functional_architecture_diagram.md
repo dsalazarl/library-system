@@ -1,6 +1,6 @@
 ```mermaid
 ---
-title: Library System - Conceptual ER Diagram
+title: Library System - Functional Architecture Diagram
 ---
 flowchart TD
     User[Library User / Librarian] --> UI[React Frontend]
