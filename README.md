@@ -134,9 +134,12 @@ transfer_requests
 └── status (enum: pending, accepted, rejected, cancelled)
 ```
 
-### Visual ER Diagram
+### Diagrams (Mermaid)
 
-[View the full Visual ER Diagram here (Mermaid)](./database-schema.md)
+* [View the Database Schema ER Diagram](./diagrams/database-schema.md)
+* [View the Functional Architecture Diagram](./diagrams/functional_architecture_diagram.md)
+* [View the Infrastructure Diagram](./diagrams/infraestructure_diagram.md)
+* [View the State Machine Diagram](./diagrams/state_machine_diagram.md)
 
 ### Constraint Implementation Notes
 
