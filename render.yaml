@@ -24,10 +24,12 @@ services:
         value: "False"
       - key: ALLOWED_HOSTS
         value: "localhost"
+      # - key: FRONTEND_URL
+      #   fromService:
+      #     name: library-frontend
+      #     property: url
       - key: FRONTEND_URL
-        fromService:
-          name: library-frontend
-          property: url
+        value: https://library-frontend.onrender.com
 
   # Frontend Service
   - type: web
@@ -36,32 +38,33 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     rootDir: frontend
-    plan: free
     envVars:
+      # - key: VITE_API_URL
+      #   fromService:
+      #     name: library-backend
+      #     type: web
+      #     property: url
       - key: VITE_API_URL
-        fromService:
-          name: library-backend
-          type: web
-          property: url
+        value: https://library-backend.onrender.com
 
-  # Automated Expiration Cron Job
-  - type: cron
-    name: expire-reservations-cron
-    env: python
-    schedule: "*/5 * * * *" # Every 5 minutes
-    buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py expire_reservations
-    rootDir: backend
-    plan: free
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: library-db
-          property: connectionString
-      - key: SECRET_KEY
-        fromService:
-          name: library-backend
-          type: web
-          property: envVar:SECRET_KEY
-      - key: DEBUG
-        value: "False"
+  # Automated Expiration Cron Job (suggested, not available in free plan)
+  # - type: cron
+  #   name: expire-reservations-cron
+  #   env: python
+  #   schedule: "*/5 * * * *" # Every 5 minutes
+  #   buildCommand: pip install -r requirements.txt
+  #   startCommand: python manage.py expire_reservations
+  #   rootDir: backend
+  #   plan: starter
+  #   envVars:
+  #     - key: DATABASE_URL
+  #       fromDatabase:
+  #         name: library-db
+  #         property: connectionString
+  #     - key: SECRET_KEY
+  #       fromService:
+  #         name: library-backend
+  #         type: web
+  #         property: envVar:SECRET_KEY
+  #     - key: DEBUG
+  #       value: "False"
