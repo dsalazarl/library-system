@@ -29,7 +29,7 @@ services:
       #     name: library-frontend
       #     property: url
       - key: FRONTEND_URL
-        value: https://library-xos9.onrender.com
+        value: https://library-y3p8.onrender.com
 
   # Frontend Service
   - type: web
