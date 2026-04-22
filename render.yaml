@@ -23,17 +23,17 @@ services:
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
-        value: "localhost"
+        value: ".onrender.com"
       # - key: FRONTEND_URL
       #   fromService:
       #     name: library-frontend
       #     property: url
       - key: FRONTEND_URL
-        value: https://library-frontend.onrender.com
+        value: https://library-xos9.onrender.com
 
   # Frontend Service
   - type: web
-    name: library-frontend
+    name: library
     runtime: static
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -45,7 +45,7 @@ services:
       #     type: web
       #     property: url
       - key: VITE_API_URL
-        value: https://library-backend.onrender.com
+        value: https://library-backend-iys8.onrender.com
 
   # Automated Expiration Cron Job (suggested, not available in free plan)
   # - type: cron
