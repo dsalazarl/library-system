@@ -1,3 +1,7 @@
+```mermaid
+---
+title: Library System - Conceptual ER Diagram
+---
 flowchart TD
     User[Library User / Librarian] --> UI[React Frontend]
 
@@ -19,3 +23,4 @@ flowchart TD
     %% Conexiones directas a la DB para mayor claridad
     Auth & Books & Copies & Reservations & Loans & Transfers --> ORM[Django ORM]
     ORM --> DB[(PostgreSQL / SQLite)]
+```
