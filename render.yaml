@@ -45,7 +45,7 @@ services:
       #     type: web
       #     property: url
       - key: VITE_API_URL
-        value: https://library-backend-iys8.onrender.com
+        value: https://library-backend-iys8.onrender.com/api
 
   # Automated Expiration Cron Job (suggested, not available in free plan)
   # - type: cron
